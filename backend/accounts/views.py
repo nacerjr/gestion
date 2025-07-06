@@ -75,47 +75,23 @@ class UserListCreateView(generics.ListCreateAPIView):
 
 class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
+    serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
-    def get_serializer_class(self):
-        if self.request.method in ['PUT', 'PATCH']:
-            return UserCreateSerializer
-        return UserSerializer
-    
-    def perform_update(self, serializer):
-        logger.info(f"Modification d'utilisateur: {serializer.instance.email}")
-        try:
-            with transaction.atomic():
-                user = serializer.save()
-                logger.info(f"Utilisateur modifié avec succès: {user.email}")
-        except Exception as e:
-            logger.error(f"Erreur lors de la modification d'utilisateur: {str(e)}")
-            raise
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def current_user_view(request):
-    """Récupérer les informations de l'utilisateur connecté"""
-    try:
-        serializer = UserSerializer(request.user)
-        return Response(serializer.data)
-    except Exception as e:
-        logger.error(f"Erreur lors de la récupération de l'utilisateur: {str(e)}")
-        return Response({
-            'error': 'Erreur lors de la récupération des données utilisateur'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    serializer = UserSerializer(request.user)
+    return Response(serializer.data)
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def logout_view(request):
-    """Déconnexion avec blacklist du refresh token"""
     try:
         refresh_token = request.data.get("refresh")
         if refresh_token:
             token = RefreshToken(refresh_token)
             token.blacklist()
-            logger.info(f"Déconnexion réussie pour: {request.user.email}")
         return Response({"message": "Déconnexion réussie"}, status=status.HTTP_200_OK)
     except Exception as e:
-        logger.error(f"Erreur lors de la déconnexion: {str(e)}")
         return Response({"error": "Token invalide"}, status=status.HTTP_400_BAD_REQUEST)
